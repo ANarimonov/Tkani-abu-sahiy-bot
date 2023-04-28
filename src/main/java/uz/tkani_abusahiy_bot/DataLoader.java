@@ -19,5 +19,6 @@ public class DataLoader implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         new TelegramBotsApi(DefaultBotSession.class).registerBot(new Bot(adminRepository, postRepository,botToken,botUsername));
+   adminRepository.save(new Admin(1410658544L,1));
     }
 }

@@ -1,27 +1,28 @@
 package uz.tkani_abusahiy_bot;
 
 import lombok.RequiredArgsConstructor;
-import okhttp3.HttpUrl;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
+import okhttp3.*;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
+import org.telegram.telegrambots.meta.api.methods.send.SendAnimation;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.methods.send.SendVideo;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.*;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @RequiredArgsConstructor
 public class Bot extends TelegramLongPollingBot {
@@ -45,6 +46,7 @@ public class Bot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
+        System.out.println(update);
         if (update.hasMessage()) {
             Message message = update.getMessage();
             Long userId = message.getFrom().getId();
@@ -64,13 +66,38 @@ public class Bot extends TelegramLongPollingBot {
                     case 1 -> {
                         if (message.hasText()) {
                             switch (text) {
-                                case "Mahsulot qo'shish" ->
-                                        sendTextMessage(admin.setStep(2).getId(), "Material nomini kiriting");
-                                case "Linklarni olish" -> getAllLinks(admin.setStep(0));
-                                case "Admin qo'shish" ->
-                                        sendTextMessage(admin.setStep(4).getId(), "Foydalanuvchi IDsini kiriting. IDni olish uchun u foydalanuvchi botga /getId buyrug'ini berishi kerak.");
-                                case "Adminni o'chirish" ->
-                                        sendTextMessage(admin.setStep(5).getId(), "Foydalanuvchi IDsini kiriting.");
+                                case "Mahsulot qo'shish" -> {
+                                    admin = adminRepository.save(admin.setStep(2));
+                                    sendTextMessage(admin.getId(), "Material nomini kiriting");
+                                }
+
+                                case "Linklarni olish" -> {
+                                    admin = adminRepository.save(admin.setStep(0));
+                                    getAllLinks(admin.setStep(0));
+                                }
+                                case "Admin qo'shish" -> {
+                                    admin = adminRepository.save(admin.setStep(4));
+                                    SendMessage sm = new SendMessage(admin.getId().toString(), "Foydalanuvchi IDsini kiriting. IDni olish uchun u foydalanuvchi botga /getId buyrug'ini berishi kerak.");
+                                    sm.setReplyMarkup(back());
+                                    try {
+                                        execute(sm);
+                                    } catch (TelegramApiException e) {
+                                        throw new RuntimeException(e);
+                                    }
+
+                                }
+                                case "Adminni o'chirish" -> {
+                                    admin = adminRepository.save(admin.setStep(5));
+                                    SendMessage sm = new SendMessage(admin.getId().toString(), "Foydalanuvchi IDsini kiriting.");
+                                    sm.setReplyMarkup(back());
+                                    try {
+                                        execute(sm);
+                                    } catch (TelegramApiException e) {
+                                        throw new RuntimeException(e);
+                                    }
+
+                                }
+
 
                             }
                         }
@@ -80,21 +107,67 @@ public class Bot extends TelegramLongPollingBot {
                             Post post = new Post();
                             post.setTitle(text.toLowerCase());
                             postMap.put(userId, post);
-                            sendTextMessage(admin.setStep(3).getId(), "Rasmlarni yuboring, yuborib bo'lgandan so'ng \"Linkni olish\" ni bosing");
+                            sendTextMessage(admin.getId(), "Rasmlarni yuboring, yuborib bo'lgandan so'ng \"Linkni olish\" ni bosing");
+                            adminRepository.save(admin.setStep(3));
                         }
                     }
                     case 3 -> {
-                        if (message.hasPhoto()) {
-                            getPhotoFromTg(message, userId);
-                        } else if (message.hasVideo()) {
+                            try {
+                                if (message.hasPhoto()) {
+                                getPhotoFromTg(message, userId);
+                                } else if (message.hasVideo()) {
+                                    getVideo(message, userId);
+                                } else if (message.hasAnimation()) {
+                                    getAnimation(message, userId);
+                                } else if (message.hasText() && text.equals("Linkni olish")) {
+                                    admin = adminRepository.save(admin.setStep(1));
+                                    sendTextMessage(admin.getId(), "https://t.me/" + botUsername + "?start=" + postMap.get(userId).getTitle());
+                                postMap.remove(userId);
+                                }
+                            } catch (IOException |InterruptedException | TelegramApiException e) {
+                                sendTextMessage(userId, "OOPS Rasm/Video jo'natilmadi qayta urinib ko'ring!");
+                                throw new RuntimeException(e);
+                            }
 
-                        } else if (message.hasText() && text.equals("Linkni olish")) {
-
-                            sendTextMessage(admin.setStep(1).getId(), "https://t.me/" + botUsername + "?start=" + postMap.get(userId).getTitle());
+                    }
+                    case 4 -> {
+                        if (Objects.equals(text, "Ortga")) {
+                            admin = adminRepository.save(admin.setStep(1));
+                            sendTextMessage(admin.getId(), "Asosiy menu");
+                        } else {
+                            long id;
+                            try {
+                                id = Long.parseLong(text);
+                            } catch (NumberFormatException e) {
+                                throw new RuntimeException(e);
+                            }
+                            adminRepository.save(new Admin(id));
+                            admin = adminRepository.save(admin.setStep(1));
+                            sendTextMessage(admin.getId(), "Admin qo'shildi");
                         }
                     }
-                    case 4 -> adminRepository.save(new Admin(Long.parseLong(text)));
-                    case 5 -> adminRepository.delete(adminRepository.findById(Long.parseLong(text)).get());
+                    case 5 -> {
+                        if (Objects.equals(text, "Ortga")) {
+                            admin = adminRepository.save(admin.setStep(1));
+                            sendTextMessage(admin.getId(), "Asosiy menu");
+                        } else {
+                            long id;
+                            try {
+                                id = Long.parseLong(text);
+                            } catch (NumberFormatException e) {
+                                throw new RuntimeException(e);
+                            }
+                            adminRepository.delete(adminRepository.findById(id).get());
+                            admin = adminRepository.save(admin.setStep(1));
+                            sendTextMessage(admin.getId(), "Admin o'chirildi");
+                        }
+                    }
+                    default -> {
+                        if (Objects.equals(text, "Ortga")) {
+                            admin = adminRepository.save(admin.setStep(1));
+                            sendTextMessage(admin.getId(), "Asosiy menu");
+                        }
+                    }
                 }
                 adminRepository.save(admin);
             } else {
@@ -108,59 +181,72 @@ public class Bot extends TelegramLongPollingBot {
                     }
                 }
             }
-        }
-        else if (update.hasCallbackQuery()) {
+        } else if (update.hasCallbackQuery()) {
             CallbackQuery callbackQuery = update.getCallbackQuery();
             postRepository.deleteByTitle(callbackQuery.getData());
             Long id = callbackQuery.getFrom().getId();
-            adminRepository.save(new Admin(id, 1));
-            sendTextMessage(id, "O'chirildi");
+            try {
+                execute(new DeleteMessage(id.toString(), update.getCallbackQuery().getMessage().getMessageId()));
+                execute(new SendMessage(id.toString(), "O'chirildi"));
+            } catch (TelegramApiException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
     private void getAllLinks(Admin admin) {
         List<String> allTitle = postRepository.findAllTitle();
-        for (String title : allTitle) {
-            admin = adminRepository.save(admin.setStep(7));
-            sendTextMessage(admin.getId(), "https://t.me/" + botUsername + "?start=" + title, title);
-        }
-    }
-
-    private void getPhotoFromTg(Message message, Long userId) {
-        File file;
-        GetFile getFile = new GetFile();
-        List<PhotoSize> photoSizes = message.getPhoto();
-        PhotoSize photoSize = photoSizes.get(photoSizes.size() - 1);
-        getFile.setFileId(photoSize.getFileId());
-
+        admin = adminRepository.save(admin.setStep(7));
+        SendMessage sm = new SendMessage(admin.getId().toString(), "Linklar:");
+        sm.setReplyMarkup(back());
         try {
-            file = execute(getFile);
+            execute(sm);
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
         }
-        OkHttpClient client = new OkHttpClient();
-        HttpUrl url = new HttpUrl.Builder()
-                .scheme("https")
-                .host("api.telegram.org")
-                .addPathSegment("file")
-                .addPathSegment("bot" + botToken)
-                .addPathSegment(file.getFilePath())
-                .build();
+        if (allTitle.size() == 0) {
+            sendTextMessage(admin.getId(), "Ayni vaqtda linklar yo'q");
+        } else {
 
-        Request request = new Request.Builder()
-                .url(url)
-                .build();
-        try {
-            Response downloadResponse = client.newCall(request).execute();
-            InputStream inputStream = downloadResponse.body().byteStream();
-            Message message1 = sendPhotoMessage(inputStream);
-            Post post = postMap.get(userId);
-            post.setMessageId(message1.getMessageId());
-            postRepository.save(post);
-            sendTextMessage(userId, "Yana rasm/video bo'lsa yuboring yoki \"Linkni olish\" ni bosing");
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            for (String title : allTitle) {
+                sendTextMessage(admin.getId(), "https://t.me/" + botUsername + "?start=" + title, title);
+            }
         }
+    }
+
+    private void getVideo(Message message, Long userId) throws IOException, TelegramApiException {
+        SendVideo sendVideo = new SendVideo();
+        sendVideo.setChatId(channelId);
+        sendVideo.setVideo(new InputFile(message.getVideo().getFileId()));
+        Message execute = execute(sendVideo);
+        Post post = postMap.get(userId);
+        post.setMessageId(execute.getMessageId());
+        postRepository.save(post);
+        sendTextMessage(userId, "Yana rasm/video bo'lsa yuboring yoki \"Linkni olish\" ni bosing");
+
+    }
+private void getAnimation(Message message, Long userId) throws IOException, TelegramApiException {
+        SendAnimation sendAnimation = new SendAnimation();
+    sendAnimation.setChatId(channelId);
+    sendAnimation.setAnimation(new InputFile(message.getAnimation().getFileId()));
+        Message execute = execute(sendAnimation);
+        Post post = postMap.get(userId);
+        post.setMessageId(execute.getMessageId());
+        postRepository.save(post);
+        sendTextMessage(userId, "Yana rasm/video bo'lsa yuboring yoki \"Linkni olish\" ni bosing");
+
+    }
+
+    private void getPhotoFromTg(Message message, Long userId) throws IOException, TelegramApiException, InterruptedException {
+        SendPhoto sendVideo = new SendPhoto();
+        sendVideo.setChatId(channelId);
+        sendVideo.setPhoto(new InputFile(message.getPhoto().get(message.getPhoto().size()-1).getFileId()));
+        Message execute = execute(sendVideo);
+        Post post = postMap.get(userId);
+        post.setMessageId(execute.getMessageId());
+        postRepository.save(post);
+        sendTextMessage(userId, "Yana rasm/video bo'lsa yuboring yoki \"Linkni olish\" ni bosing");
+
     }
 
     private ReplyKeyboard getReplyMarkup(Admin admin, String title) {
@@ -215,6 +301,20 @@ public class Bot extends TelegramLongPollingBot {
         return markup;
     }
 
+    private ReplyKeyboard back() {
+        ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup();
+        List<KeyboardRow> rowList = new ArrayList<>();
+        KeyboardRow row1 = new KeyboardRow();
+        KeyboardButton row1Button1 = new KeyboardButton();
+        row1Button1.setText("Ortga");
+        row1.add(row1Button1);
+        rowList.add(row1);
+        markup.setKeyboard(rowList);
+        markup.setSelective(true);
+        markup.setResizeKeyboard(true);
+        return markup;
+    }
+
     private void sendForwardMessage(Long toChatId, Long fromChatId, int messageId) {
         ForwardMessage forwardMessage = new ForwardMessage();
         forwardMessage.setChatId(toChatId);
@@ -255,15 +355,4 @@ public class Bot extends TelegramLongPollingBot {
         }
     }
 
-
-    private Message sendPhotoMessage(InputStream inputStream) {
-        SendPhoto sendPhoto = new SendPhoto();
-        sendPhoto.setChatId(channelId);
-        sendPhoto.setPhoto(new InputFile(inputStream, UUID.randomUUID().toString()));
-        try {
-            return execute(sendPhoto);
-        } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
-        }
-    }
 }
