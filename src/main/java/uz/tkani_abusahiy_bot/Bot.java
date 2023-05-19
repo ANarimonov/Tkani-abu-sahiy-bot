@@ -1,16 +1,17 @@
 package uz.tkani_abusahiy_bot;
 
 import lombok.RequiredArgsConstructor;
-import okhttp3.*;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
-import org.telegram.telegrambots.meta.api.methods.GetFile;
 import org.telegram.telegrambots.meta.api.methods.send.SendAnimation;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.send.SendVideo;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
-import org.telegram.telegrambots.meta.api.objects.*;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
+import org.telegram.telegrambots.meta.api.objects.InputFile;
+import org.telegram.telegrambots.meta.api.objects.Message;
+import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
@@ -20,9 +21,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 @RequiredArgsConstructor
 public class Bot extends TelegramLongPollingBot {
@@ -32,7 +31,6 @@ public class Bot extends TelegramLongPollingBot {
     private final Map<Long, Post> postMap = new HashMap<>();
     private final String botToken;
     private final String botUsername;
-
 
     @Override
     public String getBotUsername() {
@@ -354,5 +352,4 @@ private void getAnimation(Message message, Long userId) throws IOException, Tele
             throw new RuntimeException(e);
         }
     }
-
 }
