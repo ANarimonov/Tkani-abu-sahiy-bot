@@ -78,7 +78,7 @@ public class DataLoader implements CommandLineRunner {
             } else {
                 System.out.println("Backup failed. Exit code: " + exitCode);
             }
-        } catch (IOException | InterruptedException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
