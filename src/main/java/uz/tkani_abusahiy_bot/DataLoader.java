@@ -68,6 +68,12 @@ public class DataLoader implements CommandLineRunner {
                 stringBuilder.append(line).append("\n");
             }
 
+            BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+            String errorLine;
+            while ((errorLine = errorReader.readLine()) != null) {
+                System.err.println(errorLine);
+            }
+
             int exitCode = process.waitFor();
             if (exitCode == 0) {
                 FileOutputStream fos = new FileOutputStream(backupPath);
