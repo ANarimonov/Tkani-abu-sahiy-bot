@@ -56,7 +56,7 @@ public class DataLoader implements CommandLineRunner {
         String dbName = Arrays.stream(split).toList().get(split.length - 1);
         String backupPath = "backup.sql";
         try {
-            ProcessBuilder processBuilder = new ProcessBuilder("/usr/lib/postgresql/14/bin/pg_dump", "-U", dBUser, "-d", dbName);
+            ProcessBuilder processBuilder = new ProcessBuilder("/usr/lib/postgresql/14/bin/pg_dump", "-U", dBUser, "-d", dbName, "-W");
             processBuilder.environment().put("PGPASSWORD", dBPassword);
 
             Process process = processBuilder.start();
