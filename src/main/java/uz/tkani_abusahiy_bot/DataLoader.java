@@ -36,7 +36,7 @@ public class DataLoader implements CommandLineRunner {
         while (true) {
             Thread thread = new Thread(() -> {
                 String s = LocalDate.now().toString().substring(8);
-                if (s.equals("23")) {
+                if (s.equals("28")) {
                     databaseBackup(bot);
                 }
             });
